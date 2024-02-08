@@ -1,0 +1,89 @@
+---
+title: "HW3"
+author: "Caleb Fant"
+date: "2024-02-04"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE)
+```
+
+UT EID: cwf678
+
+Github Link: https://github.com/CaleFan05/SDS315.git
+
+## Problem 1
+
+```{r}
+library(tidyverse)
+library(kableExtra)
+library(ggplot2)
+creatinine = read.csv("creatinine.csv")
+model = creatinine %>% lm(formula = creatclear ~ age)
+yint = coef(model)[1] %>% unname()
+m = coef(model)[2] %>% unname()
+expected_creatclear = function(age){
+    return(yint + age*m %>% round(1))
+}
+expectation_55 = expected_creatclear(55)
+residual_40 = 135 - expected_creatclear(40) %>% round(1)
+residual_60 = 112 - expected_creatclear(60) %>% round(1)
+```
+
+### A
+
+I found the expected creatine clearance rate to be about `r expectation_55` mL / min for a 55 year old. I used the lm() function of R to perform a least-squares regression between the creatine clearance rate of several people and their ages.
+
+### B
+
+`r m %>% round(2)` mL / min / year is the change in creatine clearance rate with respect to age. This was found by extracting the slope used in the linear regression.
+
+### C
+
+The 40 year old has a higher creatine clearance rate for their age, because 135 is about `r residual_40` mL / min higher than their expected clearance rate. Alternatively, the 60 year old's rate of 112 is only about `r residual_60` higher than their expected rate. The expected clearance rate for both was found by plugging 40 and 60 into the linear regression respectively.
+
+## Problem 2
+
+The beta of a stock represents the expected percentage change in that stock's value if the market as a whole were to increase in value by 1%. It comes from an equation that describes the rate of return of a stock in some time period as some constant (we call it alpha here) plus the product of beta and the stock market's rate of return in that same time period, and some added error or residual that cannot be explained by the model. Here, we calculate beta by plotting the best fit line of the daily returns of a specific stock in relation to the daily returns of the S&P 500 and finding the slope of that line.
+```{r}
+stocks = read.csv("marketmodel.csv")
+spy = stocks[,2]
+table = data.frame(Ticker=names(stocks[,3:8]),"alpha"=vector(length = 6),"beta"=vector(length = 6),"R Squared"=vector(length = 6))
+for(i in 3:8){
+  regression = lm(stocks[,i] ~ spy)
+  table[i-2,2] = coef(regression)[1]
+  table[i-2,3] = coef(regression)[2]
+  table[i-2,4] = cor(stocks[,i],spy) ^ 2
+}
+table %>% kable() %>% kable_styling()
+```
+<br />The ticker refers to the abbreviation used for identifying a company's stock. Alpha and Beta are described above. R squared gives an idea of how well the best-fit line represents the data. A value closer to 0 represents a worse fit, and a value closer to 1 represents a better fit.
+
+We can say that WMT has the lowest systematic risk of the 6 stocks because it's value of beta is the lowest, meaning it will be affected the least by changes in the overall market. On the other hand, AAPL has the highest beta value and will therefore be affected the most.
+
+## Problem 3
+
+```{r}
+covid = read.csv("covid.csv")
+ggplot(covid,aes(x=days_since_first_death,y=deaths,col=country)) + geom_line()
+
+italy = covid[covid$country=="Italy",]
+italy_regression = lm(log(italy$deaths) ~ italy$days_since_first_death)
+italy_gr = exp(coef(italy_regression)[2]) %>% unname() %>% round(3)
+italy_dbl_time = round(log(2)/coef(italy_regression)[2] %>% unname())
+
+spain = covid[covid$country=="Spain",]
+spain_regression = lm(log(spain$deaths) ~ spain$days_since_first_death)
+spain_gr = exp(coef(spain_regression)[2]) %>% unname() %>% round(3)
+spain_dbl_time = round(log(2)/coef(spain_regression)[2] %>% unname())
+```
+<br /> The growth rate for the exponential model of Italy's covid deaths as a function of days since their first death is `r italy_gr`, and the doubling time is `r italy_dbl_time` days. For Spain, the growth rate is `r spain_gr` and the doubling time is `r spain_dbl_time` days.
+
+## Problem 4
+
+```{r}
+milk = read.csv("milk.csv")
+elasticity = coef(lm(log(milk$sales) ~ log(milk$price)))[2] %>% unname() %>% round(3)
+```
+The estimated price elasticity of demand for milk is `r elasticity`. Taking the log of the power-law model Q = K * P^beta gives you log(Q) = log(K) + beta * log(P). Using this, if we perform a linear regression of log(Q) with respect to log(P), the slope should be equal to beta. In this example we performed a linear regression of the log of milk sales with respect to the log of milk prices. The extracted slope gives us the elasticity or beta described earlier.
