@@ -1,0 +1,171 @@
+---
+title: "Homework 4"
+author: "Caleb Fant"
+date: "2024-02-19"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+UT EID: cwf678
+
+Github Link: https://github.com/CaleFan05/SDS315.git
+
+```{r}
+library(mosaic)
+library(ggplot2)
+gasprices = read.csv("gasprices.csv")
+```
+## Problem 1
+
+### Theory A: Gas stations charge more if they lack direct competition in sight
+```{r}
+# mean(Price ~ Competitors, data=gasprices)
+# diffmean(Price ~ Competitors, data=gasprices)
+boot_competition_means = do(10000)*diffmean(Price ~ Competitors, data=resample(gasprices))
+ggplot(boot_competition_means) + geom_histogram(aes(x=diffmean))
+competitor_interval = confint(boot_competition_means, level=0.95)
+competitor_interval
+competitor_lower = competitor_interval[1,"lower"]
+competitor_upper = competitor_interval[1,"upper"]
+```
+<br /> We are 95% confident that the mean gas price of stations with competitors in sight minus the mean gas price of stations without competitors in sight is between `r competitor_lower` and `r competitor_upper`. Because this interval contains 0, the theory is not supported.
+
+### Theory B: The richer the area, the higher the gas prices
+```{r}
+#lm(Price ~ Income, data=gasprices)
+ggplot(gasprices, aes(x=Income,y=Price)) + geom_point() + geom_smooth(method = "lm", formula = y ~ x)
+boot_price_over_income = do(10000)*lm(Price ~ Income, data=resample(gasprices))
+income_interval = confint(boot_price_over_income, level=0.95)
+income_interval
+income_lower = income_interval[2,"lower"]
+income_upper = income_interval[2,"upper"]
+```
+<br /> We are 95% confident that the true mean change in gas price for each additional dollar of income is between `r income_lower` and `r income_upper`. This interval does not contain 0, which suggests a statistically significant positive relationship between the two variables, supporting the theory.
+
+### Theory C: Gas stations at stoplights charge more
+```{r}
+# mean(Price ~ Stoplight, data=gasprices)
+# diffmean(Price ~ Stoplight, data=gasprices)
+boot_stoplight_means = do(10000)*diffmean(Price ~ Stoplight, data=resample(gasprices))
+ggplot(boot_stoplight_means) + geom_histogram(aes(x=diffmean))
+stoplight_interval = confint(boot_stoplight_means, level=0.95)
+stoplight_interval
+stoplight_lower = stoplight_interval[1,"lower"]
+stoplight_upper = stoplight_interval[1,"upper"]
+```
+<br /> We are 95% confident that the mean gas price of stations at a stoplight minus the mean gas price of stations not at a stoplight is between `r stoplight_lower` and `r stoplight_upper`. Because this interval contains 0, the theory is not supported.
+
+### Theory D: Gas stations with direct highway access charge more
+```{r}
+# mean(Price ~ Highway, data=gasprices)
+# diffmean(Price ~ Highway, data=gasprices)
+boot_highway_means = do(10000)*diffmean(Price ~ Highway, data=resample(gasprices))
+ggplot(boot_highway_means) + geom_histogram(aes(x=diffmean))
+highway_interval = confint(boot_highway_means, level=0.95)
+highway_interval
+highway_lower = highway_interval[1,"lower"]
+highway_upper = highway_interval[1,"upper"]
+```
+<br /> We are 95% confident that the mean gas price of stations with direct highway access minus the mean gas price of stations without direct highway access is between `r highway_lower` and `r highway_upper`. This interval does not contain 0, which suggests a statistically significant difference in price, supporting the theory.
+
+### Theory E: Shell charges more than all other non-Shell brands
+```{r}
+gasprices = mutate(gasprices, Shell = (Brand == "Shell"))
+# mean(Price ~ Shell, data=gasprices)
+# diffmean(Price ~ Shell, data=gasprices)
+boot_shell_means = do(10000)*diffmean(Price ~ Shell, data=resample(gasprices))
+ggplot(boot_shell_means) + geom_histogram(aes(x=diffmean))
+shell_interval = confint(boot_shell_means, level=0.95)
+shell_interval
+shell_lower = shell_interval[1,"lower"]
+shell_upper = shell_interval[1,"upper"]
+```
+<br /> We are 95% confident that the mean gas price of Shell stations minus the mean gas price of non-Shell stations is between `r shell_lower` and `r shell_upper`. Because this interval contains 0, the theory is not supported.
+
+## Problem 2
+```{r}
+sclass = read.csv("sclass.csv")
+test = sclass %>% filter(year == 2011) %>% filter(trim == "63 AMG")
+```
+
+### Part A:
+```{r}
+sclass_a = sclass %>% filter(year == 2011, trim == "63 AMG")
+boot_mileage_a = do(10000)*mean(~mileage, data=resample(sclass_a))
+mileage_interval = confint(boot_mileage_a, level=0.95)
+mileage_interval
+mileage_lower = mileage_interval[1,"lower"] %>% round(3)
+mileage_upper = mileage_interval[1,"upper"] %>% round(3)
+```
+<br /> We are 95% confident that the true mean mileage on 2011 Mercedes S-Class cars with the 63 AMG trim is between `r mileage_lower` and `r mileage_upper`.
+
+### Part B:
+```{r}
+sclass_b = sclass %>% filter(year == 2014, trim == "550") %>% mutate(isBlack = (color == "Black"))
+boot_isBlack = do(10000)*prop(~isBlack, data=resample(sclass_b))
+isBlack_interval = confint(boot_isBlack, level=0.95)
+isBlack_interval
+isBlack_lower = isBlack_interval[1,"lower"] %>% round(2)
+isBlack_upper = isBlack_interval[1,"upper"] %>% round(2)
+```
+<br /> We are 95% confident that the true proportion of 2014 Mercedes S-Class cars with the 550 trim that are black is between `r isBlack_lower` and `r isBlack_upper`.
+
+## Problem 3
+
+```{r}
+shows = read.csv("nbc_pilotsurvey.csv")
+```
+
+### Part A:
+```{r}
+shows_a = shows %>% filter(Show == "Living with Ed" | Show == "My Name is Earl")
+# mean(Q1_Happy ~ Show, data=shows_a)
+# diffmean(Q1_Happy ~ Show, data=shows_a)
+bootstrap_happy = do(10000) * diffmean(Q1_Happy ~ Show, data=resample(shows_a))
+happy_interval = confint(bootstrap_happy, level=0.95)
+happy_interval
+happy_lower = happy_interval[1,"lower"]
+happy_upper = happy_interval[1,"upper"]
+```
+<br /> Is there evidence that one show consistently produces a higher mean Q1_Happy response among viewers between Living with Ed and My Name is Earl? To answer this, we filtered the dataset using the filter() function to only include survey responses regarding the two shows. To generate our confidence interval we generated 10000 bootstrapped samples of the filtered dataset, and found the difference in mean scores for each show in all samples. Each bootstrap sample was made using resample(), the difference in mean scores was found using diffmean(), and it was performed 10000 times using the do() function. Then we used all the differences calculated to make a confidence interval by passing them into the confint() function at a level of 95%. The interval shows that there is 95% confidence that the true mean difference in happiness scores (Living with Ed - My Name is Earl) is between `r happy_lower` and `r happy_upper`. This interval contains 0 which means there is not evidence that one of the shows consistently produces a higher mean Q1_Happy response among viewers.
+
+### Part B:
+```{r}
+shows_b = shows %>% filter(Show == "The Biggest Loser" | Show == "The Apprentice: Los Angeles")
+# mean(Q1_Annoyed ~ Show, data=shows_b)
+# diffmean(Q1_Annoyed ~ Show, data=shows_b)
+bootstrap_annoyed = do(10000) * diffmean(Q1_Annoyed ~ Show, data=resample(shows_b))
+annoyed_interval = confint(bootstrap_annoyed, level=0.95)
+annoyed_interval
+annoyed_lower = annoyed_interval[1,"lower"]
+annoyed_upper = annoyed_interval[1,"upper"]
+```
+Is there evidence that one show consistently produces a higher mean Q1_Annoyed response among viewers between The Biggest Loser and The Apprentice: Los Angeles? The approach for answering this question is exactly the same as Part A except this time, the dataset was filtered to only include The Biggest Loser and The Apprentice: Los Angeles instead of Living with Ed and My Name is Earl. The interval shows that there is 95% confidence that the true mean difference in happiness scores (The Biggest Loser - The Apprentice: Los Angeles) is between `r happy_lower` and `r happy_upper`. This interval contains 0 which means there is not evidence that one of the shows consistently produces a higher mean Q1_Happy response among viewers.
+
+### Part C:
+```{r}
+shows_c = shows %>% filter(Show == "Dancing with the Stars") %>% mutate(high_confusion = Q2_Confusing >= 4)
+# prop(~high_confusion,data=shows_c)
+bootstrap_confused = do(10000) * prop(~high_confusion, data=resample(shows_c))
+confused_interval = confint(bootstrap_confused, level=0.95)
+confused_interval
+confused_lower = confused_interval[1,"lower"]
+confused_upper = confused_interval[1,"upper"]
+```
+Based on this sample of respondents, what proportion of American TV watchers would we expect to give a response of 4 or greater to the “Q2_Confusing” question? This time we filtered to only include responses regarding with Dancing with the Stars, and used prop() for our bootstrap samples. The interval shows that there is 95% confidence that the true proportion of American TV watchers that would report a score of at least 4 to Q2_Confusing is between `r confused_lower` and `r confused_upper`.
+
+## Problem 4
+```{r}
+ebay = read.csv("ebay.csv")
+# mean(rev_ratio ~ adwords_pause, data=ebay)
+# diffmean(rev_ratio ~ adwords_pause, data=ebay)
+bootstrap_ebay = do(10000) * diffmean(rev_ratio ~ adwords_pause, data=resample(ebay))
+ebay_interval = confint(bootstrap_ebay, level=0.95)
+ebay_interval
+ebay_lower = ebay_interval[1,"lower"]
+ebay_upper = ebay_interval[1,"upper"]
+```
+Does paying Google Adwords help ebay generate more revenue? To answer this we made a confidence interval for a difference in mean revenue ratios between DMAs who were chosen to turn off their google adwords, and a group that kept them the same. We used 10,000 bootstrapped samples for the interval. We are 95% confident that the true difference in revenue ratios (DMA without adwords - with adwords) between the two types of DMAs is between `r ebay_lower` and `r ebay_upper`. The confidence interval does not contain 0, which indicates a statistically significant negative difference between the means, suggesting that the investment into adwords is generating more revenue.
