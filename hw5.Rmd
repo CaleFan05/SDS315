@@ -1,0 +1,105 @@
+---
+title: "Homework 5"
+author: "Caleb Fant"
+date: "2024-02-28"
+output: html_document
+---
+
+UT EID: cwf678
+
+Github: https://github.com/CaleFan05/SDS315
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(mosaic)
+library(ggplot2)
+library(kableExtra)
+nsims = 100000
+```
+
+## Problem 1
+```{r}
+detection_sims = do(nsims)*nflip(n=2021,prob=0.024)
+ggplot(detection_sims) + geom_histogram(aes(x=nflip))
+pvalue70 = sum(detection_sims>=70)/nsims
+```
+<br />Here, we're trying to find the probability that the SEC would flag at least 70 of Iron Bank employee's past 2021 trades as insider trading given their baseline false flagging rate of 2.4%. This means that the null hypothesis is that the true rate of false positives for insider trading detection is equal to 2.4%. We found that there is a `r 100*pvalue70`% chance of there being at least 70 trades being marked given this rate. This represents a 1 in `r round(1/pvalue70)` chance of getting a sample like this. Since this represents such a rare case, it indicates that either the null hypothesis is false and the detection rate is higher than believed, or Iron Bank was truly making illegal trades.
+
+## Problem 2
+```{r}
+health_sims = do(nsims)*nflip(n=50,prob=.030)
+ggplot(health_sims,aes(x=nflip)) + geom_histogram()
+pvalue8 = sum(health_sims>=8)/nsims
+```
+<br />Over 50 inspections in the past year Gourmet Bites received health code violations 8 times. The health department in their area reports that 3% of inspections result in violations due to random issues. Here we're trying to answer the question of if the observed data for Gourmet Bites is consistent with the Health Department’s null hypothesis that the rate is truly 3%. We found that there is a `r 100*pvalue8`% chance of there being at least 8 occasions with violations reported at this rate. This represents a 1 in `r round(1/pvalue8)` chance of getting a sample like this. This is incredibly rare, which leads me to believe that either the rate of faulty violations is higher than 3%, or Gourmet Bites had valid health violations found in their establishment.
+
+## Problem 3
+
+### Part A: Reference Distribution
+```{r}
+letter_frequencies = read.csv("C:/Users/caleb/OneDrive/Documents/RProjects/SDS315/hw5/letter_frequencies.csv")
+
+calculate_chi_squared = function(sentence, freq_table) {
+  
+  # Ensure letter frequencies are normalized and sum to 1
+  freq_table$Probability = freq_table$Probability / sum(freq_table$Probability)
+  
+  # Remove non-letters and convert to uppercase
+  clean_sentence = gsub("[^A-Za-z]", "", sentence)
+  clean_sentence = toupper(clean_sentence)
+  
+  # Count the occurrences of each letter in the sentence
+  observed_counts = table(factor(strsplit(clean_sentence, "")[[1]], levels = freq_table$Letter))
+  
+  # Calculate expected counts
+  total_letters = sum(observed_counts)
+  expected_counts = total_letters * freq_table$Probability
+  
+  # Chi-squared statistic
+  chi_squared_stat = sum((observed_counts - expected_counts)^2 / expected_counts)
+  
+  return(chi_squared_stat)
+}
+
+# Step 1
+dirtyText = readLines("brown_sentences.txt")
+
+# Step 2-5
+ref_chis = vector(length=length(dirtyText))
+for(i in 1:length(dirtyText)){
+  ref_chis[i] = calculate_chi_squared(dirtyText[i],letter_frequencies)
+}
+
+# Step 6
+ggplot() + aes(ref_chis)+ geom_histogram()
+```
+
+### Part B: Watermark Detection
+```{r}
+sentences <- c(
+  "She opened the book and started to read the first chapter, eagerly anticipating what might come next.",
+  "Despite the heavy rain, they decided to go for a long walk in the park, crossing the main avenue by the fountain in the center.",
+  "The museum’s new exhibit features ancient artifacts from various civilizations around the world.",
+  "He carefully examined the document, looking for any clues that might help solve the mystery.",
+  "The students gathered in the auditorium to listen to the guest speaker’s inspiring lecture.",
+  "Feeling vexed after an arduous and zany day at work, she hoped for a peaceful and quiet evening at home, cozying up after a quick dinner with some TV, or maybe a book on her upcoming visit to Auckland.",
+  "The chef demonstrated how to prepare a delicious meal using only locally sourced ingredients, focusing mainly on some excellent dinner recipes from Spain.",
+  "They watched the sunset from the hilltop, marveling at the beautiful array of colors in the sky.",
+  "The committee reviewed the proposal and provided many points of useful feedback to improve the project’s effectiveness.",
+  "Despite the challenges faced during the project, the team worked tirelessly to ensure its successful completion, resulting in a product that exceeded everyone’s expectations."
+)
+
+sentences_tib = tibble("Sentence #"=1:10,"Chi-Statistic"=numeric(length=10),"P-value"=numeric(length=10))
+
+for(i in 1:10){
+  chi = calculate_chi_squared(sentences[i],letter_frequencies)
+  sentences_tib[i,2] = chi
+  sentences_tib[i,3] = sum(ref_chis>=chi)/length(ref_chis) %>% round(3)
+}
+sentences_tib %>% kbl() %>% kable_styling()
+```
+I'm led to believe that sentence 6 is the one generated by a LLM because it has highest chi-squared statistic (nearly double the next highest), which in turn gives it the lowest P-value of all sentences at p < 1%.
