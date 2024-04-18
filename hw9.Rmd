@@ -1,0 +1,182 @@
+---
+title: "Homework 9"
+author: "Caleb Fant"
+date: "2024-04-16"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,warning = FALSE, message = FALSE)
+```
+
+UT EID: cwf678
+
+Github Link: https://github.com/CaleFan05/SDS315.git
+
+## Problem 1
+
+### Part A.
+```{r}
+library(tidyverse)
+library(mosaic)
+library(ggplot2)
+library(MatchIt)
+library(moderndive)
+
+turnout = read_csv("turnout.csv")
+
+# turnoutdf = turnout %>%
+#   group_by(voted1998, GOTV_call) %>%
+#   summarise(count = n())
+
+voted_and_call_table = with(turnout, table(GOTV_call,voted1998)) %>% prop.table(margin=1)
+
+# part_a_prop = (turnout %>% filter(voted1998 == 1))$GOTV_call # Boolean Vector containing whether person received GOTV call or not given that they voted
+
+vote_with_call = voted_and_call_table[4] # Proportion True of preceding vector
+vote_without_call = voted_and_call_table[3]
+sample_diff = vote_without_call - vote_with_call # Sample proportion difference
+
+# call_bootstrap = do(10000)*{
+#   booted_vector = resample(part_a_prop)
+#   vote_with_call_boot = sum(booted_vector)/length(booted_vector) # Proportion True of preceding vector
+#   vote_without_call_boot = 1 - vote_with_call_boot # Proportion False
+#   vote_without_call_boot - vote_with_call_boot # Sample proportion difference
+# }
+call_bootstrap = do(10000)*(diffprop(voted1998 ~ GOTV_call, data=resample(turnout)) %>% as.numeric())
+
+ggplot(call_bootstrap,aes(x=result)) + geom_histogram()
+confint(call_bootstrap)
+```
+<br />Among people in the sample who voted in 1998 the proportion that received a GOTV call is about 65%. The proportion that didn't is 44%. After bootstrapping, we can say with 95% confidence that the true difference in these proportions is somewhere between 14% and and 26%.
+
+### Part B.
+```{r}
+table_96_by_98 = with(turnout, table(voted1996,voted1998)) %>% prop.table(margin=1)
+table_96_by_98
+samplediff96by98 = diffprop(voted1998 ~ voted1996,data=turnout) %>% as.numeric()
+
+# cols96and98 = turnout[,c(1,3)]
+# 
+# boot96by98 = do(10000)*diffprop(voted1998 ~ voted1996,data=resample(cols96and98))
+# 
+# ggplot(boot96by98) + geom_histogram(aes(x=diffprop)) + labs(x="Difference in Proportions",y="Count")
+# confint(boot96by98)
+```
+If a person in the sample did not vote in 1996, there is a 22.9% chance they voted in 1998. If they did vote in 1996, there is a 64% chance that they voted in 1998. That means that within the sample, voting in 1996 nearly triples the probability that they voted in 1998.`r #Bootstrapping the sample allows us to say with 95% confidence that the true difference between these proportions is somewhere between about 39.3% and 42.8%.`
+```{r}
+table_96_by_gotv = with(turnout, table(voted1996,GOTV_call)) %>% prop.table(margin=1)
+table_96_by_gotv
+samplediff96bygotv = diffprop(GOTV_call ~ voted1996,data=turnout) %>% as.numeric()
+
+# cols96andgotv = turnout[,c(2,3)]
+# 
+# boot96bygotv = do(10000)*diffprop(GOTV_call ~ voted1996,data=resample(cols96andgotv))
+# 
+# ggplot(boot96bygotv) + geom_histogram(aes(x=diffprop)) + labs(x="Difference in Proportions",y="Count")
+# confint(boot96bygotv)
+```
+If a person in the sample did not vote in 1996, there is a 1.4% chance they received a get out the vote call. If they did vote in 1996, there is a 3% chance that they received the call. That means that within the sample, voting in 1996 about doubles the probability that they received the call.`r #Bootstrapping the sample allows us to say with 95% confidence that the true difference between these proportions is somewhere between about 39.3% and 42.8%.`
+```{r}
+table_pty_by_98 = with(turnout, table(MAJORPTY,voted1998)) %>% prop.table(margin=1)
+table_pty_by_98
+samplediffptyby98 = diffprop(voted1998 ~ MAJORPTY,data=turnout) %>% as.numeric()
+```
+If a person in the sample was not a registered a major party member, there is a 35% chance they voted in 1998. If they were a registered member, there is a 48.2% chance that they voted in 1998. This means that being a registered major party member increased the chances they voted in 1998 by about `r (100*samplediffptyby98) %>% round(2)`% in absolute terms.
+```{r}
+table_pty_by_gotv = with(turnout, table(MAJORPTY,GOTV_call)) %>% prop.table(margin=1)
+table_pty_by_gotv
+samplediffptybygotv = diffprop(GOTV_call ~ MAJORPTY,data=turnout) %>% as.numeric()
+```
+If a person in the sample was not a registered a major party member, there is a 1.8% chance they received a get out the vote call. If they were a registered member, there is a 2.5% chance that they received the call. This means that being a registered major party member made it about 1.4 times as likely that you received the call.
+
+```{r}
+# ggplot(turnout, aes(x=factor(voted1998), y=AGE)) + 
+#   geom_jitter() + 
+#   labs(x="Voted in 1998 (0=no,1=yes)",y="Age",title="Visualization of Age Among Voters and Non-Voters in the 1998 Election") +
+#   stat_summary(fun='mean', color='darkorange')
+ggplot(turnout) + geom_histogram(aes(x=AGE)) + facet_wrap(~factor(voted1998)) + labs(x="Age",y="Count",title="Histograms of Age Among Voters (1) and Non-Voters (0) in the 1998 Election")
+```
+<br />As we can see, the age histogram of non-voters heavily skews to the right and has a mean around the age of `r mean(turnout[turnout$voted1998==0,]$AGE) %>% round`. On the other hand the age histogram of voters is more evenly spread across all ages, with a mean around `r mean(turnout[turnout$voted1998==1,]$AGE) %>% round()`. This means it appears a higher age is correlated with a higher chance of voting.
+```{r}
+ggplot(turnout) + geom_histogram(aes(x=AGE)) + facet_wrap(~factor(GOTV_call)) + labs(x="Age",y="Count",title="Histograms of Age Among GOTV Call Recipients (1) and Non-Recipients (0)")
+```
+<br />The age histogram of those who did not receive a GOTV call is skewed to the right slightly, while the one of those who did receive the call is skewed left and peaks around 75. This implies that a higher age is correlated with a greater chance of receiving a get out the vote call.
+
+### Part C.
+
+```{r}
+turnout_match = matchit(GOTV_call ~ factor(voted1996) + AGE + factor(MAJORPTY),data=turnout,ratio=5)
+summary(turnout_match)
+```
+Looking at the Means Treated and Means Control columns for the original and matched data, it appears like matching has nearly fully balanced the data as most of the differences became quite close to 0 in the matched data.
+
+```{r}
+turnout_matched = match.data(turnout_match)
+
+voted_and_call_table_matched = with(turnout_matched, table(voted1998,GOTV_call)) %>% prop.table(margin=1)
+
+part_c_prop = (turnout_matched %>% filter(voted1998 == 1))$GOTV_call # Boolean Vector containing whether person received GOTV call or not given that they voted
+
+vote_with_call_matched = sum(part_c_prop)/length(part_c_prop) # Proportion True of preceding vector
+vote_without_call_matched = 1 - vote_with_call_matched # Proportion False
+sample_diff = vote_without_call - vote_with_call # Sample proportion difference
+
+# call_bootstrap_matched = do(10000)*{
+#   booted_vector_matched = resample(part_c_prop)
+#   vote_with_call_boot_matched = sum(booted_vector_matched)/length(booted_vector_matched) # Proportion True of preceding vector
+#   vote_without_call_boot_matched = 1 - vote_with_call_boot_matched # Proportion False
+#   vote_without_call_boot_matched - vote_with_call_boot_matched # Sample proportion difference
+# }
+call_bootstrap_matched = do(10000)*(diffprop(voted1998 ~ GOTV_call, data=resample(turnout_matched)) %>% as.numeric())
+
+ggplot(call_bootstrap_matched,aes(x=result)) + geom_histogram()
+confint(call_bootstrap_matched)
+```
+After matching for the confounding variables of participation in voting in the 1996 election, age, and registration in a major party, it can be concluded with 95% confidence that the true difference in proportions between those who voted in 1998 without receiving a get out the vote call and those that did is between around 0.01% and 14%. Therefore it would be reasonable to say that receiving a get out the vote call had a positive effect on voter participation in the 1998 election.
+
+## Problem 2
+
+### Part A.
+```{r}
+solder = read_csv("solder.csv")
+
+ggplot(solder, aes(x=Opening, y=skips)) + 
+  geom_jitter() +
+  stat_summary(fun='mean', color='darkorange') +
+  labs(x="Opening Size",y="Number of Skips",title="Jitterplot of Skips in Soldering by Solder Gun Opening Size")
+```
+<br />The plot shows the distribution of skips for each entry in the data set grouped by the opening size of the solder gun. The orange dot represents the mean number of skips in each group. Since this mean changes with the opening size of the solder gun, it appears that there is a relationship between the two variables. Visually, we can see that as the opening gets smaller, the mean number of skips appears to be increasing.
+
+```{r}
+ggplot(solder, aes(x=Solder, y=skips)) + 
+  geom_jitter() +
+  stat_summary(fun='mean', color='darkorange') +
+  labs(x="Alloy Thickness",y="Number of Skips",title="Jitterplot of Skips in Soldering by Alloy Thickness")
+```
+<br />This plot shows the distribution of skips for each entry in the data set grouped by the alloy thickness. The orange dot represents the mean number of skips in each group. Since the mean is different for the two thicknesses, it appears that there is a relationship between the two variables. Visually, we can see that a thinner alloy appears to be related to a higher number of skips.
+
+### Part B.
+```{r}
+regression_solder = lm(skips ~ Opening + Solder + Opening:Solder,data=solder)
+# coef(regression_solder)
+get_regression_table(regression_solder, conf.level = 0.95, digits=2)
+```
+
+### Part C.
+
+Intercept - This baseline number of skips is present for any combination of variables at 0.39 skips. We would expect .39 skips if we used a large opening and thick alloy.
+
+Opening: M - The main effect for a medium opening dummy variable is 2.41 additional skips. This is the effect in isolation
+
+Opening: S - The main effect for a small opening dummy variable is 5.13 additional skips. This is the effect in isolation
+
+Solder: Thin - The main effect for a thin alloy dummy variable is 2.28 additional skips. This is the effect in isolation
+
+Opening: M:SolderThin - The interaction effect for a medium opening and thin alloy is .74 fewer skips. This means it is .74 skips less than what you would expect from summing the two main effects for each variable.
+
+Opening: S:SolderThin - The interaction effect for a small opening and thin alloy is 9.65 additional skips. This means it is 9.65 skips more than what you would expect from summing the two main effects for each variable.
+
+### Part D.
+
+I would suggest a large opening for the solder gun and the thicker option for the alloy, because the regression model shows that using any other type will only add additional skips. The exception to this is the interaction effect between a medium opening and thin alloy, however, when you add up the main effects on top of this you still get a net positive effect overall.
